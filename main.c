@@ -2,17 +2,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+#define False 0
+#define True 1
+typedef const short Short;
 typedef const int Int;
 typedef const int Bool;
 
 
-Int
-p (void * pointer) {
-    Int a = (short)pointer;
-    return ((a % 1000) / 4);
-}
-
+// Short
+// p (void * pointer) {
+//     short a = (short)pointer;
+//     return ((a % 1000) / 4);
+//     // return pointer;
+// }
+// #define p(a) p((void *)a)
 
 //
 //  SOME HEAP MAP SHIT
@@ -54,6 +57,7 @@ findHeap (Heap * heap, void * pointer) {
         return NULL;
     }
 }
+#define findHeap(a, b) findHeap(a, (void *)b)
 
 void * 
 alloc (Int size, void * dep0Ptr, void * dep1Ptr) {
@@ -71,6 +75,7 @@ alloc (Int size, void * dep0Ptr, void * dep1Ptr) {
     newHeap -> prev = NULL;
     HEAP -> prev = newHeap;
     HEAP = newHeap;
+
 
 
     return allocated;
@@ -113,6 +118,20 @@ release (void * pointer) {
     else
         return;
 }
+#define release(a) release((void *)a)
+
+
+void
+clearHeap (Heap * heap) {
+    if (heap -> next) {
+        // releaseHeap(heap);
+        // if (heap -> pointer)
+            // free(heap -> pointer);
+        Heap * next = heap -> next;
+        free(heap);
+        clearHeap(next);
+    }
+}
 
 Int
 heapSize (Heap * heap) {
@@ -123,16 +142,23 @@ heapSize (Heap * heap) {
     }
 } 
 
-
+unsigned int
+p (void * pointer) {
+    long ptr = (long) pointer;
+    return ((unsigned int)ptr % 1000) / 8;
+}
+#define p(a) p((void *)a)
 
 void
 printHeap (Heap * heap) {
 
     if (heap -> next) {
-        printf("[%d] %d %d\n", 
+        printf("[%u]\t%u\t(%u)\t%u\t(%u)\n", 
             p(findHeap(HEAP, heap -> pointer)), 
-            p(heap -> dep0), 
-            p(heap -> dep1)
+            p(heap -> dep0),   
+            heap -> dep0 ? p(findHeap(HEAP, ((long *)heap -> pointer)[0])) : NULL,
+            p(heap -> dep1),
+            heap -> dep1 ? p(findHeap(HEAP, ((long *)heap -> pointer)[1])) : NULL
         );
         printHeap(heap -> next);
     }
@@ -142,6 +168,9 @@ printHeap (Heap * heap) {
 Heap *
 copyHeap (Heap * heap) {
 
+
+    printf("*** copying %u of size %d ***\n", p(heap), heap -> size);
+
     void * data = heap -> pointer;
     Int size = heap -> size;
     Heap * dep0 = heap -> dep0;
@@ -149,17 +178,34 @@ copyHeap (Heap * heap) {
     Heap * dep0_;
     Heap * dep1_;
 
+
     if (dep0) {
         dep0_ = copyHeap(dep0);
+        printf("     dep0 %u -> %u ***\n", p(dep0), p(dep0_));
+        printPositionLn(dep0 -> pointer);
+        printPositionLn(dep0_ -> pointer);
+
     }
 
     if (dep1) {
         dep1_ = copyHeap(dep1);
+        printf("     dep0 %u -> %u ***\n", p(dep1), p(dep1_));
     }
 
-    void * allocated = alloc(size, dep0 ? dep0_ -> pointer : NULL, dep1 ? dep1_ -> pointer : NULL);
+    void * allocated = alloc(size, 
+        dep0 ? dep0_ -> pointer : NULL, 
+        dep1 ? dep1_ -> pointer : NULL
+    );
     memcpy(allocated, data, size);
 
+    // printf("%p\n", allocated);
+    // printf("%p\n", allocated + 1);
+    // memcpy(allocated, data, 4);
+
+    if (dep0)
+        ((long *)allocated)[0] = (long)dep0_ -> pointer;
+    if (dep1)
+        ((long *)allocated)[1] = (long)dep1_ -> pointer;
 
     return findHeap(HEAP, allocated);
 }
@@ -168,8 +214,20 @@ copyHeap (Heap * heap) {
 void *
 copy (void * data) {
     Heap * heap = findHeap(HEAP, data);
-    return (copyHeap(heap) -> pointer);
+
+
+
+    Heap * copied = (copyHeap(heap) -> pointer);
+    // if (heap -> size == 8) {
+    //     printf("BINGO ");
+    //     printPosition(heap -> pointer);
+    //     printPosition(copied);
+    //     // printPosition(findHeap(HEAP, allocated) -> pointer);
+    //     printf("\n");
+    // }
+    return copied;
 }
+#define copy(a) copy((void *)a)
 
 
 //
@@ -186,8 +244,14 @@ typedef const struct {
 
 void
 printPosition (Position * p) {
-    printf("(%d, %d)\n", p -> x, p -> y);
+    printf("(%d, %d) \t", p -> x, p -> y);
 }
+
+void
+printPositionLn (Position * p) {
+    printf("(%d, %d) \t\n", p -> x, p -> y);
+}
+
 
 
 Position *
@@ -236,6 +300,14 @@ void
 printList (List * list, void (*show) (void *)) {
     printList_(list, show);
 }
+#define printList(a, b) printList(a, (void *)b)
+
+void
+printListLn (List * list, void (*show) (void *)) {
+    printList_(list, show);
+    printf("\n");
+}
+#define printListLn(a, b) printListLn(a, (void *)b)
 
 Int
 length (List * list) {
@@ -266,18 +338,20 @@ nil () {
 
 List *
 cons (void * data, List * b) {
-    List * n = allocList(Cons, copy(data), b);
-    return n;
+    return allocList(Cons, data, b);
 }
+#define cons(a, b) cons((void *)a, b)
+
 
 void
-printRoute (List * routes) {
+printRoutes (List * routes) {
     switch (routes -> type) {
         case Nil:
             break;
         case Cons:
             printList(routes -> data, (void *)printPosition);
-            printRoute(routes -> cons);
+            printf("\n");
+            printRoutes(routes -> cons);
             break;
     }
    
@@ -292,9 +366,9 @@ printRoute (List * routes) {
 List *
 concatenate (List * a, List * b) {
     if (a -> type == Nil) {
-        return copy((void *)b);
+        return copy(b);
     } else {
-        return cons(a -> data, concatenate(a -> cons, b));
+        return cons(copy(a -> data), concatenate(a -> cons, b));
     }
 }
 
@@ -306,12 +380,108 @@ filter (List * list, Bool (*f) (void *)) {
             break;
         case Cons:
             if (f(list -> data)) {
-                return cons((void *)list -> data, filter(list -> cons, f));
+                return cons(copy(list -> data), filter(list -> cons, f));
             } else {
                 return filter(list -> cons, f);
             }
             break;
     }
+}
+#define filter(a, f) filter(a, (void *)f)
+
+List * 
+map (List * list, void * (*f) (void *)) {
+    switch (list -> type) {
+        case Nil:
+            return nil();
+            break;
+        case Cons:
+            return cons(copy(f(list -> data)), map(list -> cons, (void *)f));
+            break;
+    }
+}
+#define map(a, f) map(a, (void *)f)
+
+
+
+
+Bool
+elem (void * element, List * list, Bool (*eq) (void *, void *)) {
+    switch (list -> type) {
+        case Nil:
+            return False;
+            break;
+        case Cons:
+            if (eq(list -> data, element)) {
+                return True;
+            } else {
+                return False + elem(element, list -> cons, eq);
+            }
+            break;
+    }
+}
+#define elem(a, l, eq) elem((void *)a, l, (void *)eq);
+
+Bool
+onBoard (Position * position) {
+    return position -> x >= 0 
+        && position -> x < 8 
+        && position -> y >= 0 
+        && position -> y < 8;
+}
+
+List *
+mapFrontier (List * table, List * route, List * list) {
+    switch (list -> type) {
+        case Nil:
+            return nil();
+            break;
+        case Cons:;
+            Bool notElem = !elem(list -> data, table, equalPosition);
+            if (notElem) {
+                List * newRoute = cons(copy(list -> data), copy(route));
+                List * oldResult = mapFrontier(table, route, list -> cons);
+                List * result = cons(newRoute, oldResult);
+                return result;
+            } else {
+                return mapFrontier(table, route, list -> cons);
+            }
+            break;
+    }
+}
+
+List * 
+move (Position * position) {
+    Int x = position -> x;
+    Int y = position -> y;
+    List * list = nil();
+
+    list = cons(allocPosition(x + 1, y + 2), list);
+    list = cons(allocPosition(x + 1, y - 2), list);
+    list = cons(allocPosition(x - 1, y + 2), list);
+    list = cons(allocPosition(x - 1, y - 2), list);
+    list = cons(allocPosition(x + 2, y + 1), list);
+    list = cons(allocPosition(x + 2, y - 1), list);
+    list = cons(allocPosition(x - 2, y + 1), list);
+    list = cons(allocPosition(x - 2, y - 1), list);
+    List * filtered = filter(list, onBoard);
+    release(list);
+    return filtered;
+}
+
+
+List * 
+expandBFS (List * table, List * route, Position * position) {
+        // int a = heapSize(HEAP);
+    List * table_ = copy(table);
+    List * route_ = copy(route);
+    List * moved = move(position);
+    List * result = mapFrontier(table_, route_, moved);
+    release(moved);
+    release(table_);
+    release(route_);
+        // printf("%d -> %d\n", a, heapSize(HEAP));
+    return result;
 }
 
 
@@ -324,73 +494,159 @@ filter (List * list, Bool (*f) (void *)) {
 //             frontier = map attachRoute . filter (flip notElem table) . move $ r
 //             attachRoute p = p:x
 
-List *
-expandBFS (Position * position) {
 
+List *
+bfs_ (List * table, List * routes, Position * target) {
+
+    // route picked to expand
+    List * route = routes -> data;
+    Position * here = route -> data;
+
+    if (equalPosition(here, target)) {    
+        printf("HIT\n");     
+        return route;
+    } else {
+
+        int a = heapSize(HEAP);
+        // printf("GO\n");
+        // printf("table ");
+        // printListLn(table, printPosition);
+        // printf("routes \n");
+        // printRoutes(routes);
+        // printf("here ");
+        // printPositionLn(here);
+
+        List * frontier = expandBFS(table, route, here);
+
+        List * table = cons(copy(here), table);
+        List * newRoutes = concatenate(routes -> cons, frontier);
+        List * result = bfs_(copy(table), newRoutes, target);
+
+        // printRoutes(frontier);
+        // release(frontier);
+        // printRoutes(f);
+
+
+        printf("=====\n");
+        release(newRoutes);
+        release(table);
+        // printf("%d -> %d\n", a, heapSize(HEAP));
+
+        return result;     
+    } 
 }
 
 List *
 bfs (List * table, List * routes, Position * target) {
-    // route picked to expand
-    List * route = routes -> data;
-    List * here = route -> data;
-
-    if (equalPosition((Position *)here, target)) {
-        printf("HIT!\n");
-        return route;
-    } else {
-        // List * newTable = cons((void *)here, table);
-        // List * frontier = 
-        // List * newRoutes = concatenate(routes -> cons, frontier);
-        // return bfs(newTable, newRoutes, target);
-    }
+    List * table_ = copy(table);
+    List * routes_ = copy(routes);
+    Position * target_ = copy(target);
+    List * result = bfs_(table_, routes_, target_);
+    release(target_);
+    release(table_);
+    release(routes_);
+    return result;
 }
 
 
-Bool
-onBoard (Position * position) {
-    return position -> x >= 0 && position -> x < 8 && position -> y >= 0 && position -> y < 8;
-}
+
 
 
 int
 main () {
 
     initHeap();
-
-    // Position * target = allocPosition(0, 0);
-    // Position * start = allocPosition(0, 0);
+    // Position * target = allocPosition(2, 1);
+    // // Position * start = allocPosition(0, 0);
     // List * table = nil();
-    // List * routes = nil();
-    // List * initRoute = nil();
-    // initRoute = cons((void *)start, initRoute);
-    // routes = cons((void *)initRoute, routes);
+    // List * initRoute = cons(allocPosition(0, 0), nil());
+    // List * routes = cons(initRoute, nil());
 
-    // List * result = bfs(table, routes, target);
-    // printRoute(routes);
+    // // printHeap(HEAP);
+    // // printf("=======\n");
+    // List * a = bfs(table, routes, target);
+    // printListLn(a, printPosition);
 
-    // concatenate test
-    List * a = nil();
-    int i;
-    for (i = 0; i < 10; i++) {
-        Position * p = allocPosition(i, i);
-        a = cons((void *)p, a);
-        release((void *)p);
-    }
+    // // printf("====================\n");
 
-    // printList(a, (void *)printPosition);
+    // release(target);
+    // release(target);
+    // release(table);
+    // release(routes);
+    // release(a);
+    // printf("%d\n", heapSize(HEAP));
+
+    // printHeap(HEAP);
+
+
+    // Position * start = allocPosition(3, 3);
+    // List * table = nil();
+    // List * initRoute = cons(allocPosition(0, 0), nil());
+    // List * initRoute_ = copy(initRoute);
+    // release(initRoute);
+
+    // List * frontier = expandBFS(table, initRoute_, start);
+    // printRoutes(frontier);
+
+    // // release(start);
+    // // release(table);
+    // printf("%d\n", heapSize(HEAP));
+
+    // // release(frontier);
+
+    // printf("%d\n", heapSize(HEAP));
+
+    List * initRoute = cons(allocPosition(0, 0), nil());
+
+    printf("=== allocated ==\n");
     printHeap(HEAP);
 
-    printf("====================\n");
+    List * initRoute_ = copy(initRoute);
 
-    List * b = filter(a, (void *)onBoard);
-    printList(b, (void *)printPosition);
-    printHeap(HEAP);
-    printf("====================\n");
 
-    release(a);
-    release(b);
+    printf("=== copied ==\n");
     printHeap(HEAP);
+
+    printListLn(initRoute, printPosition);
+    release(initRoute);
+    printf("=== copy released ==\n");
+    printHeap(HEAP);
+
+    printListLn(initRoute_, printPosition);
+
+
+
+
+    // List * a = nil();
+    // List * b = nil();
+    // List * d = nil();
+    // List * e = nil();
+    // int i;
+    // for (i = 0; i < 5; i++) {
+    //     Position * p = allocPosition(i, i);
+    //     a = cons(p, a);
+    //     b = cons(copy(p), b);
+
+    //     d = cons(copy(a), d);
+    //     d = cons(copy(b), d);
+
+    //     e = cons(copy(d), e);
+    // }
+
+    // List * c = concatenate(a, b);
+
+
+    // printf("%d\n", heapSize(HEAP));
+
+
+    // // printListLn(a, printPosition);
+    // release(a);
+    // release(b);
+    // release(c);
+    // release(d);
+    // release(e);
+    // printf("%d\n", heapSize(HEAP));
+
     return 0;
 }
 
