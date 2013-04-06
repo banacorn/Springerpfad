@@ -152,7 +152,7 @@ copyHeap (Heap * heap) {
     if (dep0) {
         dep0_ = copyHeap(dep0);
     }
-    
+
     if (dep1) {
         dep1_ = copyHeap(dep1);
     }
@@ -296,7 +296,7 @@ printRoute (List * routes) {
 List *
 concatenate (List * a, List * b) {
     if (a -> type == Nil) {
-        return b;
+        return copy(b);
     } else {
         return cons(a -> data, concatenate(a -> cons, b));
     }
@@ -367,26 +367,21 @@ main () {
     // printRoute(routes);
 
     // concatenate test
-    // List * a = nil();
-    // List * b = nil();
-    // int i;
-    // for (i = 0; i < 4; i++) {
-    //     a = cons((void *)i, a);
-    // }
-
-
-    Position * p = allocPosition(0, 0);
     List * a = nil();
+    List * b = nil();
+    int i;
+    for (i = 0; i < 4; i++) {
+        a = cons((void *)i, a);
+    }
 
-    a = cons((void *)p, a);
     printHeap(HEAP);
 
-    List * b = copy((void *)a);
     printf("====================\n");
+    List * c = concatenate(a, b);
     printHeap(HEAP);
     printf("====================\n");
 
-    release(b);
+    release(c);
     printHeap(HEAP);
     return 0;
 }
