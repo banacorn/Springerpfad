@@ -158,7 +158,6 @@ copyHeap (Heap * heap) {
     }
 
     void * allocated = alloc(size, dep0 ? dep0_ -> pointer : NULL, dep1 ? dep1_ -> pointer : NULL);
-    // void * allocated = alloc(size, dep0_ -> pointer, dep1_ -> pointer);
     memcpy(allocated, data, size);
 
 
@@ -260,9 +259,6 @@ allocList (ListType type, void * data, List * cons) {
     return p;
 }
 
-
-
-
 List *
 nil () {
     return allocList(Nil, NULL, NULL);
@@ -270,7 +266,7 @@ nil () {
 
 List *
 cons (void * data, List * b) {
-    List * n = allocList(Cons, data, b);
+    List * n = allocList(Cons, copy(data), b);
     return n;
 }
 
@@ -296,23 +292,27 @@ printRoute (List * routes) {
 List *
 concatenate (List * a, List * b) {
     if (a -> type == Nil) {
-        return copy(b);
+        return copy((void *)b);
     } else {
         return cons(a -> data, concatenate(a -> cons, b));
     }
 }
 
-// List * 
-// filter (List * list, Bool (*f) (void *)) {
-//     switch (list -> type) {
-//         case Nil:
-//             break;
-//         case Cons:
-//             printList(routes -> data, (void *)printPosition);
-//             printRoute(routes -> cons);
-//             break;
-//     }
-// }
+List * 
+filter (List * list, Bool (*f) (void *)) {
+    switch (list -> type) {
+        case Nil:
+            return nil();
+            break;
+        case Cons:
+            if (f(list -> data)) {
+                return cons((void *)list -> data, filter(list -> cons, f));
+            } else {
+                return filter(list -> cons, f);
+            }
+            break;
+    }
+}
 
 
 // bfs :: Table -> [Route] -> Position -> Maybe (Int, Route)
@@ -347,7 +347,10 @@ bfs (List * table, List * routes, Position * target) {
 }
 
 
-
+Bool
+onBoard (Position * position) {
+    return position -> x >= 0 && position -> x < 8 && position -> y >= 0 && position -> y < 8;
+}
 
 
 int
@@ -368,20 +371,25 @@ main () {
 
     // concatenate test
     List * a = nil();
-    List * b = nil();
     int i;
-    for (i = 0; i < 4; i++) {
-        a = cons((void *)i, a);
+    for (i = 0; i < 10; i++) {
+        Position * p = allocPosition(i, i);
+        a = cons((void *)p, a);
+        release((void *)p);
     }
 
+    // printList(a, (void *)printPosition);
     printHeap(HEAP);
 
     printf("====================\n");
-    List * c = concatenate(a, b);
+
+    List * b = filter(a, (void *)onBoard);
+    printList(b, (void *)printPosition);
     printHeap(HEAP);
     printf("====================\n");
 
-    release(c);
+    release(a);
+    release(b);
     printHeap(HEAP);
     return 0;
 }
