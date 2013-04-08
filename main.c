@@ -323,6 +323,20 @@ allocMaybe (MaybeType type, void * data) {
     return p;
 }
 
+void
+printMaybe (Maybe * maybe, void (*show) (void *)) {
+    switch (maybe -> type) {
+        case Nothing:
+            printf("Nothing\n");
+            break;
+        case Just:
+            printf("Show ");
+            show((void *)maybe -> data);
+            break;
+    }
+}
+#define printMaybe(a, b) printMaybe(a, (void *)b)
+
 // data List a = Cons a (List a) | Nil
 typedef const enum ListType { Nil, Cons } ListType;
 typedef const struct List {
@@ -664,6 +678,44 @@ allocDFSResult (Int node, List * route) {
     return p;
 }
 
+void 
+printDFSResult (DFSResult * result) {
+    printf("%d ", result -> node);
+    printListLn(result -> route, printPosition);
+}
+
+
+// dfs :: Table -> [TaggedRoute] -> Limit -> Position -> Maybe (Int, TaggedRoute)
+// dfs _ [] _ _ = Nothing
+// dfs table (route:xs) limit goal
+//     | here == goal = Just (length table, route)
+//     | depth == limit = dfs (here:table) (xs) limit goal
+//     | otherwise = dfs newTable (frontier ++ xs) limit goal
+//     where   (here, depth):rs = route
+//             frontier = map (attachRoute . tag) . filter (flip notElem table) . move $ here
+//             newTable = if here `notElem` table then here:table else table
+//             tag position = (position, depth + 1)
+//             attachRoute p = p:route
+
+Maybe *
+dfs (List * table, List * route, Int limit, Position * goal) {
+
+    table = copy(table);
+    route = copy(route);
+    goal = copy(goal);
+
+    Maybe * result;
+
+    if (route -> type == Nil) {
+        result = allocMaybe(Nothing, NULL);
+    }
+
+    release(table);
+    release(route);
+    release(goal);
+
+    return result;
+}
 
 
 ///////////////////////////////////////
@@ -701,64 +753,26 @@ main () {
     // printf("%d\n", theFunction(1, 2, 2, 0, 4));
     // printf("%d\n", theFunction(1, 2, 2, 4, 0));
 
+    List * table = nil();
+    List * routes = nil();
+    Position * goal = allocPosition(0, 0);
+    Maybe * result = dfs(table, routes, 100, goal);
 
-    // printf("%d\n", heapSize(HEAP));
-
-
-
-
-
-
+    printMaybe(result, printDFSResult);
 
 
-
-    // List * initRoute = cons(allocPosition(0, 0), nil());
-
-    // printf("=== allocated ==\n");
-    // printHeap(HEAP);
-
-    // List * initRoute_ = copy(initRoute);
+    release(table);
+    release(routes);
+    release(goal);
+    release(result);
 
 
-    // printf("=== copied ==\n");
-    // printHeap(HEAP);
 
-    // printListLn(initRoute, printPosition);
-    // release(initRoute);
-    // printf("=== copy released ==\n");
-    // printHeap(HEAP);
-    // printListLn(initRoute_, printPosition);
+    printf("heap size: %d\n", heapSize(HEAP));
 
 
 
 
-    // List * a = nil();
-    // List * b = nil();
-    // int i;
-    // for (i = 0; i < 5; i++) {
-    //     Position * q = allocPosition(i, i + 1);
-    //     b = cons(q, b);
-    // }
-
-    // printHeap(HEAP);
-    // List * c = concatenate(a, b);
-    // printf("%d\n", heapSize(HEAP));
-    // printHeap(HEAP);
-
-
-
-    // printListLn(a, printPosition);
-    // release(a);
-    // printListLn(b, printPosition);
-    // release(b);
-    // printListLn(c, printPosition);
-    // release(c);
-    // printf("%d\n", heapSize(HEAP));
 
     return 0;
 }
-
-// int
-// main () {
-//     return 0;
-// }
