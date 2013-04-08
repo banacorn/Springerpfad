@@ -262,6 +262,13 @@ copy (void * data) {
 #define copy(a) copy((void *)a)
 
 
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+
+
 //
 //  HASKELL FTW
 //
@@ -307,6 +314,14 @@ typedef const struct Maybe {
     void * data;
 } Maybe;
 
+Maybe *
+allocMaybe (MaybeType type, void * data) {
+    Maybe maybe = {type, data};
+    void * allocated = alloc(sizeof(Maybe), data, NULL);
+    memcpy(allocated, &maybe, sizeof(Maybe));
+    Maybe * p = (void *)allocated;
+    return p;
+}
 
 // data List a = Cons a (List a) | Nil
 typedef const enum ListType { Nil, Cons } ListType;
@@ -373,6 +388,8 @@ cons (void * data, List * b) {
     return allocList(Cons, data, b);
 }
 #define cons(a, b) cons((void *)a, b)
+
+
 
 
 void
@@ -451,6 +468,14 @@ elem (void * element, List * list, Bool (*eq) (void *, void *)) {
     }
 }
 #define elem(a, l, eq) elem((void *)a, l, (void *)eq);
+
+
+
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
 
 
 
@@ -603,6 +628,51 @@ printReverse (List * list) {
 }
 
 
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+
+
+typedef const struct TaggedPosition {
+    Int level;
+    Position * position;
+} TaggedPosition;
+
+
+TaggedPosition *
+allocTaggedPosition (Int level, Position * position) {
+    TaggedPosition taggedPosition = { level, position };
+    void * allocated = alloc(sizeof(TaggedPosition), (void *)position, NULL);
+    memcpy(allocated, &taggedPosition, sizeof(TaggedPosition));
+    TaggedPosition * p = (void *)allocated;
+    return p;
+}
+
+typedef const struct DFSResult {
+    Int node;
+    List * route;
+} DFSResult;
+
+DFSResult *
+allocDFSResult (Int node, List * route) {
+    DFSResult dfsResult = { node, route };
+    void * allocated = alloc(sizeof(DFSResult), (void *)route, NULL);
+    memcpy(allocated, &dfsResult, sizeof(DFSResult));
+    DFSResult * p = (void *)allocated;
+    return p;
+}
+
+
+
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+
+
 int
 theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
     int node = 0;
@@ -617,20 +687,23 @@ theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
     return node;
 }
 
+
+
 int
 main () {
 
     initHeap();
 
-    printf("%d\n", theFunction(1, 0, 0, 2, 2));
-    printf("%d\n", theFunction(1, 1, 1, 3, 3));
-    printf("%d\n", theFunction(1, 2, 2, 0, 0));
-    printf("%d\n", theFunction(1, 2, 2, 4, 4));
-    printf("%d\n", theFunction(1, 2, 2, 0, 4));
-    printf("%d\n", theFunction(1, 2, 2, 4, 0));
+    // printf("%d\n", theFunction(1, 0, 0, 2, 2));
+    // printf("%d\n", theFunction(1, 1, 1, 3, 3));
+    // printf("%d\n", theFunction(1, 2, 2, 0, 0));
+    // printf("%d\n", theFunction(1, 2, 2, 4, 4));
+    // printf("%d\n", theFunction(1, 2, 2, 0, 4));
+    // printf("%d\n", theFunction(1, 2, 2, 4, 0));
 
 
-    printf("%d\n", heapSize(HEAP));
+    // printf("%d\n", heapSize(HEAP));
+
 
 
 
