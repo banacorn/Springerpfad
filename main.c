@@ -283,12 +283,12 @@ typedef const struct {
 
 void
 printPosition (Position * p) {
-    printf("(%d, %d) \t", p -> x, p -> y);
+    printf("(%d, %d) ", p -> x, p -> y);
 }
 
 void
 printPositionLn (Position * p) {
-    printf("(%d, %d) \t\n", p -> x, p -> y);
+    printf("(%d, %d) \n", p -> x, p -> y);
 }
 
 
@@ -310,18 +310,19 @@ equalPosition (Position * a, Position * b) {
 // data List a = Just a | Nothing
 typedef const enum MaybeType { Just, Nothing } MaybeType;
 typedef const struct Maybe {
-    MaybeType type;
     void * data;
+    MaybeType type;
 } Maybe;
 
 Maybe *
 allocMaybe (MaybeType type, void * data) {
-    Maybe maybe = {type, data};
+    Maybe maybe = {data, type};
     void * allocated = alloc(sizeof(Maybe), data, NULL);
     memcpy(allocated, &maybe, sizeof(Maybe));
     Maybe * p = (void *)allocated;
     return p;
 }
+#define allocMaybe(a, b) allocMaybe(a, (void *)b)
 
 void
 printMaybe (Maybe * maybe, void (*show) (void *)) {
@@ -330,7 +331,7 @@ printMaybe (Maybe * maybe, void (*show) (void *)) {
             printf("Nothing\n");
             break;
         case Just:
-            printf("Show ");
+            printf("Just ");
             show((void *)maybe -> data);
             break;
     }
@@ -496,13 +497,13 @@ elem (void * element, List * list, Bool (*eq) (void *, void *)) {
 
 
 typedef const struct BFSResult {
-    Int node;
     List * route;
+    Int node;
 } BFSResult;
 
 BFSResult *
 allocBFSResult (Int node, List * route) {
-    BFSResult bfsResult = { node, route };
+    BFSResult bfsResult = { route, node };
     void * allocated = alloc(sizeof(BFSResult), (void *)route, NULL);
     memcpy(allocated, &bfsResult, sizeof(BFSResult));
     BFSResult * p = (void *)allocated;
@@ -650,28 +651,34 @@ printReverse (List * list) {
 
 
 typedef const struct TaggedPosition {
-    Int level;
     Position * position;
+    Int level;
 } TaggedPosition;
 
 
 TaggedPosition *
 allocTaggedPosition (Int level, Position * position) {
-    TaggedPosition taggedPosition = { level, position };
+    TaggedPosition taggedPosition = { position, level };
     void * allocated = alloc(sizeof(TaggedPosition), (void *)position, NULL);
     memcpy(allocated, &taggedPosition, sizeof(TaggedPosition));
     TaggedPosition * p = (void *)allocated;
     return p;
 }
 
+void
+printTaggedPosition (TaggedPosition * position) {
+    printPosition(position -> position);
+    printf(":%d", position -> level);
+}
+
 typedef const struct DFSResult {
-    Int node;
     List * route;
+    Int node;
 } DFSResult;
 
 DFSResult *
 allocDFSResult (Int node, List * route) {
-    DFSResult dfsResult = { node, route };
+    DFSResult dfsResult = { route, node };
     void * allocated = alloc(sizeof(DFSResult), (void *)route, NULL);
     memcpy(allocated, &dfsResult, sizeof(DFSResult));
     DFSResult * p = (void *)allocated;
@@ -680,8 +687,8 @@ allocDFSResult (Int node, List * route) {
 
 void 
 printDFSResult (DFSResult * result) {
-    printf("%d ", result -> node);
-    printListLn(result -> route, printPosition);
+    printf("%d | ", result -> node);
+    printListLn(result -> route, printTaggedPosition);
 }
 
 
@@ -698,20 +705,37 @@ printDFSResult (DFSResult * result) {
 //             attachRoute p = p:route
 
 Maybe *
-dfs (List * table, List * route, Int limit, Position * goal) {
+dfs (List * table, List * routes, Int limit, Position * goal) {
 
     table = copy(table);
-    route = copy(route);
+    routes = copy(routes);
     goal = copy(goal);
 
     Maybe * result;
 
-    if (route -> type == Nil) {
+    if (routes -> type == Nil) {
         result = allocMaybe(Nothing, NULL);
+    } else {
+
+
+        List * route = routes -> data;
+        TaggedPosition * taggedHere = route -> data;
+        Position * here = taggedHere -> position;
+        Int depth = taggedHere -> level;
+
+        // printf("%d\n", equalPosition(here, goal));
+
+        if (equalPosition(here, goal)) {
+
+            result = allocMaybe(Just, allocDFSResult(length(table), copy(route)));
+
+        } else
+            result = allocMaybe(Nothing, NULL);
+
     }
 
     release(table);
-    release(route);
+    release(routes);
     release(goal);
 
     return result;
@@ -754,7 +778,7 @@ main () {
     // printf("%d\n", theFunction(1, 2, 2, 4, 0));
 
     List * table = nil();
-    List * routes = nil();
+    List * routes = cons(cons(allocTaggedPosition(0, allocPosition(0, 0)), nil()), nil());
     Position * goal = allocPosition(0, 0);
     Maybe * result = dfs(table, routes, 100, goal);
 
