@@ -9,13 +9,13 @@ type Table = [Position]
 type Route = [Position]
 type TaggedRoute = [(Position, Int)]
 
-bfs :: Table -> [Route] -> Position -> Maybe (Int, Route, Table)
+bfs :: Table -> [Route] -> Position -> Maybe (Int, Route)
 bfs _ [] _ = Nothing
-bfs table (x:xs) target
-    | r == target = Just (length table, x, table)
-    | otherwise = bfs newTable (xs ++ frontier) target
+bfs table (x:xs) goal
+    | r == goal || goal `elem` frontier = Just (length table + 1, goal:x)
+    | otherwise = bfs newTable (xs ++ map attachRoute frontier) goal
     where   (r:rs) = x
-            frontier = map attachRoute . filter (flip notElem table) . move $ r
+            frontier = filter (flip notElem table) . move $ r
             newTable = if r `notElem` table then r:table else table
             attachRoute p = p:x
 
@@ -35,12 +35,12 @@ v (Just (list, n))= n
 
 dfs :: Table -> [TaggedRoute] -> Limit -> Position -> Maybe (Int, TaggedRoute)
 dfs _ [] _ _ = Nothing
-dfs table (route:xs) limit target
-    | here == target = Just (length table, route)
-    | depth == limit = dfs (here:table) (xs) limit target
-    | otherwise = dfs newTable (frontier ++ xs) limit target
+dfs table (route:xs) limit goal
+    | here == goal || goal `elem` frontier = Just (length table + 1, (goal, 0):route)
+    | depth == limit = dfs (here:table) (xs) limit goal
+    | otherwise = dfs newTable (map (attachRoute . tag) frontier ++ xs) limit goal
     where   (here, depth):rs = route
-            frontier = map (attachRoute . tag) . filter (flip notElem table) . move $ here
+            frontier = filter (flip notElem table) . move $ here
             newTable = if here `notElem` table then here:table else table
             tag position = (position, depth + 1)
             attachRoute p = p:route

@@ -519,7 +519,21 @@ onBoard (Position * position) {
 }
 
 List *
-mapFrontier (List * table, List * route, List * list) {
+mapAttachRoute (List * route, List * list) {
+    switch (list -> type) {
+        case Nil:
+            return nil();
+            break;
+        case Cons:;
+            List * newRoute = cons(copy(list -> data), copy(route));
+            List * oldResult = mapAttachRoute(route, list -> cons);
+            return cons(newRoute, oldResult);
+            break;
+    }
+}
+
+List *
+filterNotElemOfTable (List * table, List * list) {
     switch (list -> type) {
         case Nil:
             return nil();
@@ -527,94 +541,83 @@ mapFrontier (List * table, List * route, List * list) {
         case Cons:;
             Bool notElem = !elem(list -> data, table, equalPosition);
             if (notElem) {
-                List * newRoute = cons(copy(list -> data), copy(route));
-                List * oldResult = mapFrontier(table, route, list -> cons);
-                List * result = cons(newRoute, oldResult);
-                return result;
+                return cons(copy(list -> data), filterNotElemOfTable(table, list -> cons));
             } else {
-                return mapFrontier(table, route, list -> cons);
+                return filterNotElemOfTable(table, list -> cons);
             }
             break;
     }
 }
 
 List * 
-move (Position * position) {
+expand (Position * position) {
     Int x = position -> x;
     Int y = position -> y;
     List * list = nil();
 
     list = cons(allocPosition(x + 1, y + 2), list);
-    list = cons(allocPosition(x + 1, y - 2), list);
-    list = cons(allocPosition(x - 1, y + 2), list);
-    list = cons(allocPosition(x - 1, y - 2), list);
     list = cons(allocPosition(x + 2, y + 1), list);
     list = cons(allocPosition(x + 2, y - 1), list);
-    list = cons(allocPosition(x - 2, y + 1), list);
+    list = cons(allocPosition(x + 1, y - 2), list);
+    list = cons(allocPosition(x - 1, y - 2), list);
     list = cons(allocPosition(x - 2, y - 1), list);
+    list = cons(allocPosition(x - 2, y + 1), list);
+    list = cons(allocPosition(x - 1, y + 2), list);
     List * filtered = filter(list, onBoard);
     release(list);
     return filtered;
 }
 
-
-List * 
-expandBFS (List * table, List * route, Position * position) {
-    table = copy(table);
-    route = copy(route);
-    List * moved = move(position);
-    List * result = mapFrontier(table, route, moved);
-    release(moved);
-    release(table);
-    release(route);
-    return result;
-}
-
-
-// bfs :: Table -> [Route] -> Position -> Maybe (Int, Route)
+// bfs :: Table -> [Route] -> Position -> Maybe (Int, Route, Table)
 // bfs _ [] _ = Nothing
-// bfs (i, table) (x:xs) target
-//     | r == target = Just (i, x)
-//     | otherwise = bfs (succ i, r:table) (xs ++ frontier) target
+// bfs table (x:xs) goal
+//     | r == goal || goal `elem` frontier = Just (length table', goal:x, table')
+//     | otherwise = bfs newTable (xs ++ map attachRoute frontier) goal
 //     where   (r:rs) = x
-//             frontier = map attachRoute . filter (flip notElem table) . move $ r
-//             attachRoute p = p:x
-
+//             frontier = filter (flip notElem table) . move $ r
+//             table' = r:table 
+//             newTable = if r `notElem` table then r:table else table
 
 BFSResult *
-bfs_ (List * table, List * routes, Position * target) {
+bfs_ (List * table, List * routes, Position * goal) {
     
+
     table = copy(table);
     routes = copy(routes);
-    target = copy(target);
+    goal = copy(goal);
 
     BFSResult * result;
     List * route = routes -> data;
     Position * here = route -> data;
+    List * expanded = expand(here);
+    List * expandedNotElemOfTable = filterNotElemOfTable(table, expanded);
 
-    if (equalPosition(here, target)) {
-        result = allocBFSResult(length(table), copy(route));   
+    Bool goalInFrontier = elem(goal, expandedNotElemOfTable, equalPosition);
+
+    if (equalPosition(here, goal) || goalInFrontier) {
+        List * newRoutes = cons(copy(goal), copy(route));
+        result = allocBFSResult(length(table) + 1, newRoutes);   
     } else {
-        List * frontier = expandBFS(table, route, here);
-        List * newRoutes = concatenate(routes -> cons, frontier);
+        List * expandedRoutes = mapAttachRoute(route, expandedNotElemOfTable);
+        List * newRoutes = concatenate(routes -> cons, expandedRoutes);
         Bool inTable = elem(here, table, equalPosition);
         List * newTable = inTable ? copy(table) : cons(copy(here), copy(table));
-        result = bfs_(newTable, newRoutes, target);
-        release(frontier);
+        result = bfs_(newTable, newRoutes, goal);
         release(newRoutes);
         release(newTable);
+        release(expandedRoutes);
     }
 
 
-
+    release(expanded);
+    release(expandedNotElemOfTable);
     release(table);
     release(routes);
-    release(target);
+    release(goal);
 
     return result;
-
-
 }
+
 
 BFSResult *
 bfs (Int startX, Int startY, Int goalX, Int goalY) {
@@ -699,10 +702,41 @@ printDFSResult (DFSResult * result) {
 //     | depth == limit = dfs (here:table) (xs) limit goal
 //     | otherwise = dfs newTable (frontier ++ xs) limit goal
 //     where   (here, depth):rs = route
-//             frontier = map (attachRoute . tag) . filter (flip notElem table) . move $ here
+//             frontier = map (attachRoute . tag) . filter (flip notElem table) . expand $ here
 //             newTable = if here `notElem` table then here:table else table
 //             tag position = (position, depth + 1)
 //             attachRoute p = p:route
+
+// List *
+// mapDFSFrontier 
+// switch (list -> type) {
+//         case Nil:
+//             return nil();
+//             break;
+//         case Cons:;
+//             Bool notElem = !elem(list -> data, table, equalPosition);
+//             if (notElem) {
+//                 List * newRoute = cons(copy(list -> data), copy(route));
+//                 List * oldResult = mapFrontier(table, route, list -> cons);
+//                 List * result = cons(newRoute, oldResult);
+//                 return result;
+//             } else {
+//                 return mapFrontier(table, route, list -> cons);
+//             }
+//             break;
+//     }
+
+// List * 
+// expandDFS (List * table, List * route, Position * position) {
+//     table = copy(table);
+//     route = copy(route);
+//     List * expanded = expand(position);
+//     List * result = mapDFSFrontier(table, route, expanded);
+//     release(expanded);
+//     release(table);
+//     release(route);
+//     return result;
+// }
 
 Maybe *
 dfs (List * table, List * routes, Int limit, Position * goal) {
@@ -723,15 +757,17 @@ dfs (List * table, List * routes, Int limit, Position * goal) {
         Position * here = taggedHere -> position;
         Int depth = taggedHere -> level;
 
-        // printf("%d\n", equalPosition(here, goal));
-
         if (equalPosition(here, goal)) {
-
             result = allocMaybe(Just, allocDFSResult(length(table), copy(route)));
-
-        } else
+        } else if (depth == limit) {
+            List * newTable = cons(copy(here), copy(table));
+            List * newRoutes = copy(routes -> cons);
+            result = dfs(newTable, newRoutes, limit, goal);
+            release(newTable);
+            release(newRoutes);
+        } else {
             result = allocMaybe(Nothing, NULL);
-
+        }
     }
 
     release(table);
@@ -770,25 +806,27 @@ main () {
 
     initHeap();
 
-    // printf("%d\n", theFunction(1, 0, 0, 2, 2));
+    printf("%d\n", theFunction(1, 0, 0, 1, 2));
+    printf("%d\n", theFunction(1, 0, 0, 2, 1));
+    printf("%d\n", theFunction(1, 0, 0, 2, 2));
     // printf("%d\n", theFunction(1, 1, 1, 3, 3));
     // printf("%d\n", theFunction(1, 2, 2, 0, 0));
     // printf("%d\n", theFunction(1, 2, 2, 4, 4));
     // printf("%d\n", theFunction(1, 2, 2, 0, 4));
     // printf("%d\n", theFunction(1, 2, 2, 4, 0));
 
-    List * table = nil();
-    List * routes = cons(cons(allocTaggedPosition(0, allocPosition(0, 0)), nil()), nil());
-    Position * goal = allocPosition(0, 0);
-    Maybe * result = dfs(table, routes, 100, goal);
+    // List * table = nil();
+    // List * routes = cons(cons(allocTaggedPosition(0, allocPosition(0, 0)), nil()), nil());
+    // Position * goal = allocPosition(0, 0);
+    // Maybe * result = dfs(table, routes, 100, goal);
 
-    printMaybe(result, printDFSResult);
+    // printMaybe(result, printDFSResult);
 
 
-    release(table);
-    release(routes);
-    release(goal);
-    release(result);
+    // release(table);
+    // release(routes);
+    // release(goal);
+    // release(result);
 
 
 
