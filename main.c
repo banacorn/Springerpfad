@@ -435,8 +435,6 @@ map (List * list, void * (*f) (void *)) {
 #define map(a, f) map(a, (void *)f)
 
 
-
-
 Bool
 elem (void * element, List * list, Bool (*eq) (void *, void *)) {
     switch (list -> type) {
@@ -453,6 +451,24 @@ elem (void * element, List * list, Bool (*eq) (void *, void *)) {
     }
 }
 #define elem(a, l, eq) elem((void *)a, l, (void *)eq);
+
+
+
+
+
+typedef const struct BFSResult {
+    Int node;
+    List * route;
+} BFSResult;
+
+BFSResult *
+allocBFSResult (Int node, List * route) {
+    BFSResult bfsResult = { node, route };
+    void * allocated = alloc(sizeof(BFSResult), (void *)route, NULL);
+    memcpy(allocated, &bfsResult, sizeof(BFSResult));
+    BFSResult * p = (void *)allocated;
+    return p;
+}
 
 Bool
 onBoard (Position * position) {
@@ -525,24 +541,24 @@ expandBFS (List * table, List * route, Position * position) {
 //             attachRoute p = p:x
 
 
-List *
+BFSResult *
 bfs_ (List * table, List * routes, Position * target) {
     
     table = copy(table);
     routes = copy(routes);
     target = copy(target);
 
-    List * result;
+    BFSResult * result;
     List * route = routes -> data;
     Position * here = route -> data;
 
     if (equalPosition(here, target)) {
-        printf("HIT\n");     
-        result = copy(route);   
+        result = allocBFSResult(length(table), copy(route));   
     } else {
         List * frontier = expandBFS(table, route, here);
         List * newRoutes = concatenate(routes -> cons, frontier);
-        List * newTable = cons(copy(here), copy(table));
+        Bool inTable = elem(here, table, equalPosition);
+        List * newTable = inTable ? copy(table) : cons(copy(here), copy(table));
         result = bfs_(newTable, newRoutes, target);
         release(frontier);
         release(newRoutes);
@@ -560,13 +576,13 @@ bfs_ (List * table, List * routes, Position * target) {
 
 }
 
-List *
-bfs (List * routes, Position * target) {
+BFSResult *
+bfs (Int startX, Int startY, Int goalX, Int goalY) {
     List * table = nil();
-    routes = copy(routes);
-    target = copy(target);
-    List * result = bfs_(table, routes, target);
-    release(target);
+    List * routes = cons(cons(allocPosition(startX, startY), nil()), nil());
+    Position * goal = allocPosition(goalX, goalY);
+    BFSResult * result = bfs_(table, routes, goal);
+    release(goal);
     release(table);
     release(routes);
 
@@ -574,47 +590,47 @@ bfs (List * routes, Position * target) {
 }
 
 
+void
+printReverse (List * list) {
+    switch (list -> type) {
+        case Nil:
+            break;
+        case Cons:
+            printReverse(list -> cons);
+            printPosition(list -> data);
+            break;
+    }
+}
 
 
+int
+theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
+    int node = 0;
+    switch (type) {
+        case 1:;    
+            BFSResult * result = bfs(startX, startY, goalX, goalY);
+            printReverse(result -> route);
+            node = result -> node;
+            release(result);    
+            break;
+    }
+    return node;
+}
 
 int
 main () {
 
     initHeap();
-    Position * target = allocPosition(2, 2);
-    List * routes = cons(cons(allocPosition(0, 0), nil()), nil());
 
-
-    List * a = bfs(routes, target);
-
-    printListLn(a, printPosition);
-    release(target);
-    release(routes);
-    release(a);
+    printf("%d\n", theFunction(1, 0, 0, 2, 2));
+    printf("%d\n", theFunction(1, 1, 1, 3, 3));
+    printf("%d\n", theFunction(1, 2, 2, 0, 0));
+    printf("%d\n", theFunction(1, 2, 2, 4, 4));
+    printf("%d\n", theFunction(1, 2, 2, 0, 4));
+    printf("%d\n", theFunction(1, 2, 2, 4, 0));
 
 
     printf("%d\n", heapSize(HEAP));
-
-
-
-
-
-
-
-    // Position * start = allocPosition(3, 3);
-    // List * table = nil();
-    // List * initRoute = cons(allocPosition(0, 0), nil());
-    // List * initRoute_ = copy(initRoute);
-    // release(initRoute);
-    // List * frontier = expandBFS(table, initRoute_, start);
-    // release(initRoute_);
-    // release(start);
-    // release(table);
-    // printf("%d\n", heapSize(HEAP));
-    // printRoutes(frontier);
-    // release(frontier);
-    // printf("%d\n", heapSize(HEAP));
-
 
 
 

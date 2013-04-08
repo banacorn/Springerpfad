@@ -1,24 +1,79 @@
 
+import Data.List (nub, (\\), sortBy)
+import Data.Ord (comparing)
 
+type Depth = Int
+type Limit = Int
 type Position = (Int, Int)
-type Table = (Int, [Position])
-
+type Table = [Position]
 type Route = [Position]
+type TaggedRoute = [(Position, Int)]
 
-bfs :: Table -> [Route] -> Position -> Maybe (Int, Route)
+bfs :: Table -> [Route] -> Position -> Maybe (Int, Route, Table)
 bfs _ [] _ = Nothing
-bfs (i, table) (x:xs) target
-    | r == target = Just (i, x)
-    | otherwise = bfs (succ i, r:table) (xs ++ frontier) target
+bfs table (x:xs) target
+    | r == target = Just (length table, x, table)
+    | otherwise = bfs newTable (xs ++ frontier) target
     where   (r:rs) = x
             frontier = map attachRoute . filter (flip notElem table) . move $ r
+            newTable = if r `notElem` table then r:table else table
             attachRoute p = p:x
 
-a = bfs (0, []) [[(0, 0)]] (2, 3)
-b = bfs (0, []) [[(0, 0)]] (2, 2)
+a = bfs [] [[(0, 0)]] (1, 2)
+b = bfs [] [[(0, 0)]] (2, 1)
 
-data Tree a = Node a [Tree a] deriving (Eq, Show)
+erste x y x' y' = bfs [] [[(x, y)]] (x', y')
 
+
+r = nub $ return (3, 3) >>= move >>= move
+s = r \\ [(3, 3)]
+
+t = erste 3 3
+u = [ t x y| (x, y) <- s]
+v (Just (list, n))= n 
+
+
+dfs :: Table -> [TaggedRoute] -> Limit -> Position -> Maybe (Int, TaggedRoute)
+dfs _ [] _ _ = Nothing
+dfs table (route:xs) limit target
+    | here == target = Just (length table, route)
+    | depth == limit = dfs (here:table) (xs) limit target
+    | otherwise = dfs newTable (frontier ++ xs) limit target
+    where   (here, depth):rs = route
+            frontier = map (attachRoute . tag) . filter (flip notElem table) . move $ here
+            newTable = if here `notElem` table then here:table else table
+            tag position = (position, depth + 1)
+            attachRoute p = p:route
+-- ''       --where   (r, depth):rs = x
+--  ''      --        frontier = map attachRoute . filter (flip notElem table) . move $ r
+--   ''     --        depth' = if frontier == [] then depth else depth + 1 
+--    ''    --        attachRoute p = p:x
+
+iddfs n x y x' y'
+    | n > 5 = Nothing
+    | otherwise = case dfs [] [[((x, y), 0)]] n (x', y') of
+            Nothing -> iddfs (succ n) x y x' y'
+            Just r -> Just r
+
+
+--astar route start goal
+--    | start == goal = route
+--    | otherwise = astar (start:route) (bestNode start) goal
+--    where   (x, y) = start
+--            (x', y') = goal
+
+tagFitness goal p = (fitness goal p, p)
+fitness (x', y') (x, y) = floor $ (abs (fromInteger x' - fromInteger x) + abs (fromInteger y' - fromInteger y)) / 3
+--bestNode :: Position -> Position
+--bestNode = snd . head . sortBy (comparing fst) . map tagFitness . move
+
+--data Tree a = Node a (Forest a) deriving (Eq, Show)
+--type Forest a = [Tree a]
+
+--tree = Node 4 [Node 3 [Node 5 [], Node 6 [], Node 7 []], Node 2 [], Node 1 []]
+
+--dfs stack [] = stack
+--dfs stack (Node a branches) = dfs (branches ++ stack)
 
 --dfs (Node a []) = a
 --dfs (Node a branches)
@@ -106,13 +161,13 @@ data Tree a = Node a [Tree a] deriving (Eq, Show)
 
 move (x, y) = filter onBoard [
         (x + 1, y + 2),
-        (x + 1, y - 2),
-        (x - 1, y + 2),
-        (x - 1, y - 2),
         (x + 2, y + 1),
         (x + 2, y - 1),
+        (x + 1, y - 2),
+        (x - 1, y - 2),
+        (x - 2, y - 1),
         (x - 2, y + 1),
-        (x - 2, y - 1)
+        (x - 1, y + 2)
     ]
     where onBoard (x, y) = x >= 0 && x < 8 && y >= 0 && y < 8
 
