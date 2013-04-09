@@ -44,10 +44,6 @@ dfs table (route:xs) limit goal
             newTable = if here `notElem` table then here:table else table
             tag position = (position, depth + 1)
             attachRoute p = p:route
--- ''       --where   (r, depth):rs = x
---  ''      --        frontier = map attachRoute . filter (flip notElem table) . move $ r
---   ''     --        depth' = if frontier == [] then depth else depth + 1 
---    ''    --        attachRoute p = p:x
 
 iddfs n x y x' y'
     | n > 5 = Nothing

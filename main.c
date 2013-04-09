@@ -34,7 +34,7 @@ typedef struct Heap {
 
 // THE HEAP
 Heap * HEAP;
-int heapsize = 0;
+int heapInitialized = False;
 
 // nil the HEAP
 void
@@ -262,19 +262,29 @@ copy (void * data) {
 #define copy(a) copy((void *)a)
 
 
-///////////////////////////////////////
-///////////////////////////////////////
-///////////////////////////////////////
-///////////////////////////////////////
-///////////////////////////////////////
+//////////////////////////////////
+////////                  ////////
+////////   HASKELL FTW    ////////
+////////                  ////////
+//////////////////////////////////
+
+
+
+Int *
+allocInt (Int x) {
+    Int integer = {x};
+    void * allocated = alloc(sizeof(Int), NULL, NULL);
+    memcpy(allocated, &integer, sizeof(Int));
+    Int * p = (void *)allocated;
+    return p;
+}
 
 
 //
-//  HASKELL FTW
+//      type Position = (x, y)
 //
 
 
-// type Position = (x, y)
 typedef const struct {
     Int x;
     Int y;
@@ -307,7 +317,46 @@ equalPosition (Position * a, Position * b) {
     return a -> x == b -> x && a -> y == b -> y;
 }
 
-// data List a = Just a | Nothing
+//
+//      data Either a b = Left a | Right b
+//
+
+typedef const enum EitherType { Left, Right } EitherType;
+typedef const struct Either {
+    void * data;
+    EitherType type;
+} Either;
+
+Either *
+allocEither (EitherType type, void * data) {
+    Either either = {data, type};
+    void * allocated = alloc(sizeof(Either), data, NULL);
+    memcpy(allocated, &either, sizeof(Either));
+    Either * p = (void *)allocated;
+    return p;
+}
+#define allocEither(a, b) allocEither(a, (void *)b)
+
+void
+printEither (Either * either, void (*show) (void *)) {
+    switch (either -> type) {
+        case Left:
+            printf("Left ");
+            show((void *)either -> data);
+            break;
+        case Right:
+            printf("Right ");
+            show((void *)either -> data);
+            break;
+    }
+}
+#define printEither(a, b) printEither(a, (void *)b)
+
+//
+//      data List a = Just a | Nothing
+//
+
+ 
 typedef const enum MaybeType { Just, Nothing } MaybeType;
 typedef const struct Maybe {
     void * data;
@@ -338,7 +387,10 @@ printMaybe (Maybe * maybe, void (*show) (void *)) {
 }
 #define printMaybe(a, b) printMaybe(a, (void *)b)
 
-// data List a = Cons a (List a) | Nil
+//
+//      data List a = Cons a (List a) | Nil
+//
+
 typedef const enum ListType { Nil, Cons } ListType;
 typedef const struct List {
     void * data;
@@ -406,20 +458,6 @@ cons (void * data, List * b) {
 
 
 
-
-void
-printRoutes (List * routes) {
-    switch (routes -> type) {
-        case Nil:
-            break;
-        case Cons:
-            printList(routes -> data, (void *)printPosition);
-            printf("\n");
-            printRoutes(routes -> cons);
-            break;
-    }
-   
-}
 
 
 
@@ -493,6 +531,20 @@ elem (void * element, List * list, Bool (*eq) (void *, void *)) {
 ///////////////////////////////////////
 
 
+
+void
+printRoutes (List * routes) {
+    switch (routes -> type) {
+        case Nil:
+            break;
+        case Cons:
+            printList(routes -> data, (void *)printPosition);
+            printf("\n");
+            printRoutes(routes -> cons);
+            break;
+    }
+   
+}
 
 
 
@@ -594,7 +646,9 @@ bfs_ (List * table, List * routes, Position * goal) {
 
     Bool goalInFrontier = elem(goal, expandedNotElemOfTable, equalPosition);
 
-    if (equalPosition(here, goal) || goalInFrontier) {
+    if (equalPosition(here, goal)) {
+        result = allocBFSResult(length(table), copy(route));
+    } else if (goalInFrontier) {
         List * newRoutes = cons(copy(goal), copy(route));
         result = allocBFSResult(length(table) + 1, newRoutes);   
     } else {
@@ -671,7 +725,7 @@ allocTaggedPosition (Int level, Position * position) {
 void
 printTaggedPosition (TaggedPosition * position) {
     printPosition(position -> position);
-    printf(":%d", position -> level);
+    // printf(":%d", position -> level);
 }
 
 typedef const struct DFSResult {
@@ -695,60 +749,44 @@ printDFSResult (DFSResult * result) {
 }
 
 
+List *
+mapTagThenAttachRoute (List * route, Int depth, List * list) {
+    switch (list -> type) {
+        case Nil:
+            return nil();
+            break;
+        case Cons:;
+            List * newRoute = cons(allocTaggedPosition(depth + 1, copy(list -> data)), copy(route));
+            List * oldResult = mapTagThenAttachRoute(route, depth, list -> cons);
+            return cons(newRoute, oldResult);
+            break;
+    }
+}
+
 // dfs :: Table -> [TaggedRoute] -> Limit -> Position -> Maybe (Int, TaggedRoute)
 // dfs _ [] _ _ = Nothing
 // dfs table (route:xs) limit goal
-//     | here == goal = Just (length table, route)
-//     | depth == limit = dfs (here:table) (xs) limit goal
-//     | otherwise = dfs newTable (frontier ++ xs) limit goal
+//     | here == goal || goal `elem` frontier = Just (length table + 1, (goal, 0):route)
+//     | depth == limit = dfs newTable (xs)                                     limit goal
+//     | otherwise      = dfs newTable (map (attachRoute . tag) frontier ++ xs) limit goal
 //     where   (here, depth):rs = route
-//             frontier = map (attachRoute . tag) . filter (flip notElem table) . expand $ here
+//             frontier = filter (flip notElem table) . move $ here
 //             newTable = if here `notElem` table then here:table else table
 //             tag position = (position, depth + 1)
 //             attachRoute p = p:route
 
-// List *
-// mapDFSFrontier 
-// switch (list -> type) {
-//         case Nil:
-//             return nil();
-//             break;
-//         case Cons:;
-//             Bool notElem = !elem(list -> data, table, equalPosition);
-//             if (notElem) {
-//                 List * newRoute = cons(copy(list -> data), copy(route));
-//                 List * oldResult = mapFrontier(table, route, list -> cons);
-//                 List * result = cons(newRoute, oldResult);
-//                 return result;
-//             } else {
-//                 return mapFrontier(table, route, list -> cons);
-//             }
-//             break;
-//     }
 
-// List * 
-// expandDFS (List * table, List * route, Position * position) {
-//     table = copy(table);
-//     route = copy(route);
-//     List * expanded = expand(position);
-//     List * result = mapDFSFrontier(table, route, expanded);
-//     release(expanded);
-//     release(table);
-//     release(route);
-//     return result;
-// }
-
-Maybe *
+Either *
 dfs (List * table, List * routes, Int limit, Position * goal) {
 
     table = copy(table);
     routes = copy(routes);
     goal = copy(goal);
 
-    Maybe * result;
+    Either * result;
 
     if (routes -> type == Nil) {
-        result = allocMaybe(Nothing, NULL);
+        result = allocEither(Left, allocInt(length(table)));
     } else {
 
 
@@ -757,17 +795,40 @@ dfs (List * table, List * routes, Int limit, Position * goal) {
         Position * here = taggedHere -> position;
         Int depth = taggedHere -> level;
 
+        List * expanded = expand(here);
+        List * expandedNotElemOfTable = filterNotElemOfTable(table, expanded);
+    
+        Bool goalInFrontier = elem(goal, expandedNotElemOfTable, equalPosition);
+
         if (equalPosition(here, goal)) {
-            result = allocMaybe(Just, allocDFSResult(length(table), copy(route)));
+            result = allocEither(Right, allocDFSResult(length(table), copy(route)));
+        } else if (goalInFrontier) {
+            List * newRoutes = cons(allocTaggedPosition(0, copy(goal)), copy(route));
+            result = allocEither(Right, allocDFSResult(length(table) + 1, newRoutes));
+
         } else if (depth == limit) {
-            List * newTable = cons(copy(here), copy(table));
+            Bool inTable = elem(here, table, equalPosition);
+            List * newTable = inTable ? copy(table) : cons(copy(here), copy(table));
             List * newRoutes = copy(routes -> cons);
             result = dfs(newTable, newRoutes, limit, goal);
             release(newTable);
             release(newRoutes);
         } else {
-            result = allocMaybe(Nothing, NULL);
+            // printPositionLn(here);
+            // printListLn(expanded, printPosition);
+            // printListLn(expandedNotElemOfTable, printPosition);
+            List * expandedRoutes = mapTagThenAttachRoute(route, depth, expandedNotElemOfTable);
+            
+            Bool inTable = elem(here, table, equalPosition);
+            List * newTable = inTable ? copy(table) : cons(copy(here), copy(table));
+            List * newRoutes = concatenate(expandedRoutes, routes -> cons);
+            result = dfs(newTable, newRoutes, limit, goal);
+            release(newTable);
+            release(newRoutes);
+            release(expandedRoutes);
         }
+        release(expanded);
+        release(expandedNotElemOfTable);
     }
 
     release(table);
@@ -775,6 +836,57 @@ dfs (List * table, List * routes, Int limit, Position * goal) {
     release(goal);
 
     return result;
+}
+
+
+// iddfs n x y x' y'
+//     | n > 5 = Nothing
+//     | otherwise = case dfs [] [[((x, y), 0)]] n (x', y') of
+//             Nothing -> iddfs (succ n) x y x' y'
+//             Just r -> Just r
+
+DFSResult *
+iddfs (Int limit, Int nodeExpanded, Position * start, Position * goal) {
+
+    start = copy(start);
+    goal = copy(goal);
+
+    List * table = nil();
+    List * routes = cons(cons(allocTaggedPosition(0, copy(start)), nil()), nil());
+
+    Either * attempt = dfs(table, routes, limit, goal);
+    DFSResult * result;
+
+    switch (attempt -> type) {
+        case Left:;
+            Int * n = attempt -> data;
+            result = iddfs(limit + 1, *n, start, goal);
+            // printf("failed at level %d expanded %d nodes\n", limit, *n + nodeExpanded);
+            break;
+        case Right:;
+            DFSResult * data = attempt -> data;
+            result = allocDFSResult(data -> node + nodeExpanded, copy(data -> route));
+            // printf("successed at level %d expanded %d nodes\n", limit, data -> node + nodeExpanded);
+            break;
+    }
+    release(start);
+    release(goal);
+    release(table);
+    release(routes);
+    release(attempt);
+    return result;
+}
+
+void
+printTaggedReverse (List * list) {
+    switch (list -> type) {
+        case Nil:
+            break;
+        case Cons:
+            printTaggedReverse(list -> cons);
+            printTaggedPosition(list -> data);
+            break;
+    }
 }
 
 
@@ -787,6 +899,12 @@ dfs (List * table, List * routes, Int limit, Position * goal) {
 
 int
 theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
+
+    if (!heapInitialized) {
+        initHeap();
+        heapInitialized = True;
+    }
+
     int node = 0;
     switch (type) {
         case 1:;    
@@ -794,6 +912,17 @@ theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
             printReverse(result -> route);
             node = result -> node;
             release(result);    
+            break;
+        case 2:;
+            Position * start = allocPosition(startX, startY);
+            Position * goal = allocPosition(goalX, goalY);
+            DFSResult * iddfsResult = iddfs(0, 0, start, goal);
+            printTaggedReverse(iddfsResult -> route);
+            node = iddfsResult -> node;
+            release(start);
+            release(goal);
+            release(iddfsResult);
+
             break;
     }
     return node;
@@ -804,11 +933,11 @@ theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
 int
 main () {
 
-    initHeap();
 
-    printf("%d\n", theFunction(1, 0, 0, 1, 2));
-    printf("%d\n", theFunction(1, 0, 0, 2, 1));
-    printf("%d\n", theFunction(1, 0, 0, 2, 2));
+    // printf("%d\n", theFunction(1, 0, 0, 0, 0));
+    printf("%d\n", theFunction(2, 0, 0, 6, 3));
+
+    // printf("%d\n", theFunction(2, 0, 0, 2, 2));
     // printf("%d\n", theFunction(1, 1, 1, 3, 3));
     // printf("%d\n", theFunction(1, 2, 2, 0, 0));
     // printf("%d\n", theFunction(1, 2, 2, 4, 4));
@@ -817,8 +946,8 @@ main () {
 
     // List * table = nil();
     // List * routes = cons(cons(allocTaggedPosition(0, allocPosition(0, 0)), nil()), nil());
-    // Position * goal = allocPosition(0, 0);
-    // Maybe * result = dfs(table, routes, 100, goal);
+    // Position * goal = allocPosition(1, 2);
+    // Maybe * result = dfs(table, routes, 3, goal);
 
     // printMaybe(result, printDFSResult);
 
@@ -829,6 +958,18 @@ main () {
     // release(result);
 
 
+
+    // Position * start = allocPosition(0, 0);
+    // Position * goal = allocPosition(1, 2);
+
+    // DFSResult * result = iddfs(0, start, goal);
+
+    // printDFSResult(result);
+
+
+    // release(start);
+    // release(goal);
+    // release(result);
 
     printf("heap size: %d\n", heapSize(HEAP));
 
