@@ -1,21 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define False 0
 #define True 1
 typedef const short Short;
 typedef const int Int;
 typedef const int Bool;
-
-
-// Short
-// p (void * pointer) {
-//     short a = (short)pointer;
-//     return ((a % 1000) / 4);
-//     // return pointer;
-// }
-// #define p(a) p((void *)a)
 
 //
 //  SOME HEAP MAP SHIT
@@ -318,6 +310,35 @@ equalPosition (Position * a, Position * b) {
 }
 
 //
+//      data Pair a b = Pair a b
+//
+
+
+typedef const struct Pair {
+    void * fst;
+    void * snd;
+} Pair;
+
+Pair *
+allocPair (void * fst, void * snd) {
+    Pair pair = {fst, snd};
+    void * allocated = alloc(sizeof(Pair), fst, snd);
+    memcpy(allocated, &pair, sizeof(Pair));
+    Pair * p = (void *)allocated;
+    return p;
+}
+#define allocPair(a, b) allocPair((void *)a, (void *)b)
+
+void
+printPair (Pair * pair, void (*showFst) (void *), void (*showSnd) (void *)) {
+    printf("Fst ");
+    showFst((void *)pair -> fst);
+    printf("Snd ");
+    showSnd((void *)pair -> snd);
+}
+#define printPair(a, b, c) printPair(a, (void *)b, (void *)c)
+
+//
 //      data Either a b = Left a | Right b
 //
 
@@ -548,17 +569,17 @@ printRoutes (List * routes) {
 
 
 
-typedef const struct BFSResult {
+typedef const struct Result {
     List * route;
     Int node;
-} BFSResult;
+} Result;
 
-BFSResult *
-allocBFSResult (Int node, List * route) {
-    BFSResult bfsResult = { route, node };
-    void * allocated = alloc(sizeof(BFSResult), (void *)route, NULL);
-    memcpy(allocated, &bfsResult, sizeof(BFSResult));
-    BFSResult * p = (void *)allocated;
+Result *
+allocResult (Int node, List * route) {
+    Result result = { route, node };
+    void * allocated = alloc(sizeof(Result), (void *)route, NULL);
+    memcpy(allocated, &result, sizeof(Result));
+    Result * p = (void *)allocated;
     return p;
 }
 
@@ -630,7 +651,7 @@ expand (Position * position) {
 //             table' = r:table 
 //             newTable = if r `notElem` table then r:table else table
 
-BFSResult *
+Result *
 bfs_ (List * table, List * routes, Position * goal) {
     
 
@@ -638,7 +659,7 @@ bfs_ (List * table, List * routes, Position * goal) {
     routes = copy(routes);
     goal = copy(goal);
 
-    BFSResult * result;
+    Result * result;
     List * route = routes -> data;
     Position * here = route -> data;
     List * expanded = expand(here);
@@ -647,10 +668,10 @@ bfs_ (List * table, List * routes, Position * goal) {
     Bool goalInFrontier = elem(goal, expandedNotElemOfTable, equalPosition);
 
     if (equalPosition(here, goal)) {
-        result = allocBFSResult(length(table), copy(route));
+        result = allocResult(length(table), copy(route));
     } else if (goalInFrontier) {
         List * newRoutes = cons(copy(goal), copy(route));
-        result = allocBFSResult(length(table) + 1, newRoutes);   
+        result = allocResult(length(table) + 1, newRoutes);   
     } else {
         List * expandedRoutes = mapAttachRoute(route, expandedNotElemOfTable);
         List * newRoutes = concatenate(routes -> cons, expandedRoutes);
@@ -673,12 +694,12 @@ bfs_ (List * table, List * routes, Position * goal) {
 }
 
 
-BFSResult *
+Result *
 bfs (Int startX, Int startY, Int goalX, Int goalY) {
     List * table = nil();
     List * routes = cons(cons(allocPosition(startX, startY), nil()), nil());
     Position * goal = allocPosition(goalX, goalY);
-    BFSResult * result = bfs_(table, routes, goal);
+    Result * result = bfs_(table, routes, goal);
     release(goal);
     release(table);
     release(routes);
@@ -728,24 +749,10 @@ printTaggedPosition (TaggedPosition * position) {
     // printf(":%d", position -> level);
 }
 
-typedef const struct DFSResult {
-    List * route;
-    Int node;
-} DFSResult;
-
-DFSResult *
-allocDFSResult (Int node, List * route) {
-    DFSResult dfsResult = { route, node };
-    void * allocated = alloc(sizeof(DFSResult), (void *)route, NULL);
-    memcpy(allocated, &dfsResult, sizeof(DFSResult));
-    DFSResult * p = (void *)allocated;
-    return p;
-}
-
 void 
-printDFSResult (DFSResult * result) {
+printResult (Result * result) {
     printf("%d | ", result -> node);
-    printListLn(result -> route, printTaggedPosition);
+    printListLn(result -> route, printPosition);
 }
 
 
@@ -801,10 +808,10 @@ dfs (List * table, List * routes, Int limit, Position * goal) {
         Bool goalInFrontier = elem(goal, expandedNotElemOfTable, equalPosition);
 
         if (equalPosition(here, goal)) {
-            result = allocEither(Right, allocDFSResult(length(table), copy(route)));
+            result = allocEither(Right, allocResult(length(table), copy(route)));
         } else if (goalInFrontier) {
             List * newRoutes = cons(allocTaggedPosition(0, copy(goal)), copy(route));
-            result = allocEither(Right, allocDFSResult(length(table) + 1, newRoutes));
+            result = allocEither(Right, allocResult(length(table) + 1, newRoutes));
 
         } else if (depth == limit) {
             Bool inTable = elem(here, table, equalPosition);
@@ -845,7 +852,7 @@ dfs (List * table, List * routes, Int limit, Position * goal) {
 //             Nothing -> iddfs (succ n) x y x' y'
 //             Just r -> Just r
 
-DFSResult *
+Result *
 iddfs (Int limit, Int nodeExpanded, Position * start, Position * goal) {
 
     start = copy(start);
@@ -855,7 +862,7 @@ iddfs (Int limit, Int nodeExpanded, Position * start, Position * goal) {
     List * routes = cons(cons(allocTaggedPosition(0, copy(start)), nil()), nil());
 
     Either * attempt = dfs(table, routes, limit, goal);
-    DFSResult * result;
+    Result * result;
 
     switch (attempt -> type) {
         case Left:;
@@ -864,8 +871,8 @@ iddfs (Int limit, Int nodeExpanded, Position * start, Position * goal) {
             // printf("failed at level %d expanded %d nodes\n", limit, *n + nodeExpanded);
             break;
         case Right:;
-            DFSResult * data = attempt -> data;
-            result = allocDFSResult(data -> node + nodeExpanded, copy(data -> route));
+            Result * data = attempt -> data;
+            result = allocResult(data -> node + nodeExpanded, copy(data -> route));
             // printf("successed at level %d expanded %d nodes\n", limit, data -> node + nodeExpanded);
             break;
     }
@@ -897,6 +904,277 @@ printTaggedReverse (List * list) {
 ///////////////////////////////////////
 
 
+
+typedef const struct Node {
+    Position * position;
+    Position * parent;
+    Int g;
+    Int h;
+} Node;
+
+Node *
+allocNode (Position * position, Position * parent, Int g, Int h) {
+    Node node = { position, parent, g, h };
+    void * allocated = alloc(sizeof(Node), (void *)position, (void *)parent);
+    memcpy(allocated, &node, sizeof(Node));
+    Node * p = (void *)allocated;
+    return p;
+}
+
+void
+printNode (Node * node) {
+    printPosition(node -> position);
+    printPosition(node -> parent);
+    printf("%d  ", node -> g + node -> h);
+}
+
+Int
+heuristic (Position * position, Position * goal) {
+    return (Int)floor((abs(goal -> x - position -> x) + abs(goal -> y - position -> y)) / 3);
+}
+
+Node *
+toNode (Position * position, Position * parent, Int cost, Position * goal) {
+    return allocNode(copy(position), copy(parent), cost, heuristic(position, goal));
+}
+
+Bool
+inQueue (List * queue, Position * position) {
+    switch (queue -> type) {
+        case Nil:
+            return False;
+            break;
+        case Cons:;
+
+            Node * node = queue -> data;
+
+            if (equalPosition(position, node -> position))
+                return True;
+            else
+                return inQueue(queue -> cons, position);
+            break;
+    }
+}
+
+Int
+cost (Node * node) {
+    return (node -> g) + (node -> h);
+}
+
+// pick :: PQueue -> (PQueue, Node)
+// pick queue = (queue \\ [picked], picked)
+//     where   picked = minimumBy (comparing cost) queue
+
+Pair *
+pick (List * open) {
+
+    Pair * result;
+    Node * newNode = open -> data;
+
+    if (length(open) == 1) {
+        result = allocPair(nil(), copy(newNode));
+    } else {
+        Pair * pair = pick(open -> cons);
+        List * oldQueue = copy(pair -> fst);
+        Node * oldNode = copy(pair -> snd);
+        release(pair);
+        if (cost(newNode) < cost(oldNode)) {
+           result = allocPair(cons(oldNode, oldQueue), copy(newNode));
+        } else {
+           result = allocPair(cons(copy(newNode), oldQueue), oldNode);
+        }
+    }
+
+    return result;
+}
+
+
+
+// findNode p (x:xs)
+//     | position x == p   = x
+//     | otherwise         = findNode p xs
+Node *
+findNode (List * queue, Position * position) {
+
+    Node * thisNode = queue -> data;
+
+    if (equalPosition(thisNode -> position, position)) {
+        return copy(thisNode);
+    } else {
+        return findNode(queue -> cons, position);
+    }
+}
+
+
+// constructPath :: PQueue -> Position -> Position -> Route
+// constructPath queue start goal
+//     | start == goal = [start]
+//     | otherwise = goal : constructPath queue start goal'
+//     where   (_, goal', _, _) = findNode goal queue
+
+List *
+constructPath (List * queue, Position * start, Position * goal) {
+    List * result;
+    if (equalPosition(start, goal)) {
+        result = cons(copy(start), nil());
+    } else {
+        Node * goalNode = findNode(queue, goal);
+        // Node * goalParent = findNode(queue, goalNode -> parent);
+        result = cons(copy(goal), constructPath(queue, start, goalNode -> parent));
+        release(goalNode);
+        // release(goalParent);
+    }
+    return result;
+}
+
+
+// expand :: Position -> Node -> PQueue
+// expand goal (position, _, g, h) = map (evalCost g) . move $ position
+//     where evalCost g p = (p, position, succ g, heuristic goal p)
+
+List *
+expandNode (List * expanded, Node * origin, Position * goal) {
+    if (expanded -> type == Nil) {
+        return nil();
+    } else {
+        Node * newNode = toNode(expanded -> data, origin -> position, cost(origin) + 1, goal);
+        return cons(newNode, expandNode(expanded -> cons, origin, goal));
+    }
+}
+
+List *
+addNode (List * closed, List * open, Node * expanded) {
+
+    List * result;
+
+    // printf("adding  ");
+    // printNode(expanded);
+    // printf("\n");
+
+    switch (open -> type) {
+        case Nil:
+            result = cons(copy(expanded), nil());
+            break;
+        case Cons:
+
+            if (inQueue(closed, expanded -> position)) {
+                result = copy(open);
+            } else {
+
+                Node * node = open -> data;
+                if (equalPosition(node -> position, expanded -> position)) {
+                    // printf("%d %d\n", cost(node), cost(expanded));
+                    if (cost(node) > cost(expanded)) {
+                        result = cons(copy(expanded), copy(open -> cons));
+                    } else {
+                        // printf("worse\n");
+                        result = copy(open);
+                    }
+                } else {
+                    result = cons(copy(open -> data), addNode(closed, open -> cons, expanded));
+                }
+                
+            }
+
+            break;
+    }
+
+    return result;
+}
+
+List *
+addNodes (List * closed, List * open, List * expanded) {
+    switch (expanded -> type) {
+        case Nil:
+            return copy(open);
+            break;
+        case Cons:;
+            List * newOpen = addNode(closed, open, expanded -> data);
+            List * result = addNodes(closed, newOpen, expanded -> cons);
+            release(newOpen);
+            return result;
+            break;
+    }
+}
+
+// aStar :: PQueue -> PQueue -> Position -> Position -> (Int, Route)
+// aStar open closed start goal
+//     | start == goal         = (0, [start])
+//     | goal `inPQueue` open  = (length closed, constructPath (closed ++ open) start goal)
+//     | otherwise             = aStar open' closed' start goal
+//     where   (openRest, picked) = pick open
+//             open'              = foldl (addNode closed) openRest (expand goal picked)
+//             closed'            = picked : closed
+
+
+Result *
+aStar (List * open, List * closed, Position * start, Position * goal) {
+    open = copy(open);
+    closed = copy(closed);
+    start = copy(start);
+    goal = copy(goal);
+
+    Result * result;
+
+    if (equalPosition(start, goal)) {
+        List * path = cons(copy(start), nil());
+        result = allocResult(0, path);
+    } else if (inQueue(open, goal)) {
+        // printf("in open queue\n");
+        List * allSet = concatenate(open, closed);
+        List * path = constructPath(allSet, start, goal);
+        result = allocResult(length(closed), path);
+        release(allSet);
+
+    } else {
+        // printf("open\n");
+        // printListLn(open, printNode);
+        // printf("closed\n");
+        // printListLn(closed, printNode);
+        // printf("========\n");
+
+        Pair * pickedPair = pick(open);
+        List * openRest = pickedPair -> fst;
+        Node * picked = pickedPair -> snd;
+        List * expanded = expand(picked -> position);
+        List * expandedNode = expandNode(expanded, picked, goal);
+        // printListLn(expandedNode, printNode);
+
+        List * newOpen = addNodes(closed, openRest, expandedNode);
+        List * newClosed = cons(copy(picked), copy(closed));
+
+        // printf("new open\n");
+        // printListLn(newOpen, printNode);
+        // printf("new closed\n");
+        // printListLn(newClosed, printNode);
+        // printf("========\n");
+        result = aStar(newOpen, newClosed, start, goal);
+
+
+
+        release(pickedPair);
+        release(expanded);
+        release(expandedNode);
+        release(newOpen);
+        release(newClosed);
+
+
+    }
+
+    release(open);
+    release(closed);
+    release(start);
+    release(goal);
+    return result;
+}
+
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+
+
 int
 theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
 
@@ -906,24 +1184,44 @@ theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
     }
 
     int node = 0;
+
+    Position * start;
+    Position * goal;
+
     switch (type) {
         case 1:;    
-            BFSResult * result = bfs(startX, startY, goalX, goalY);
+            Result * result = bfs(startX, startY, goalX, goalY);
             printReverse(result -> route);
             node = result -> node;
             release(result);    
             break;
         case 2:;
-            Position * start = allocPosition(startX, startY);
-            Position * goal = allocPosition(goalX, goalY);
-            DFSResult * iddfsResult = iddfs(0, 0, start, goal);
-            printTaggedReverse(iddfsResult -> route);
-            node = iddfsResult -> node;
+            start = allocPosition(startX, startY);
+            goal = allocPosition(goalX, goalY);
+            Result * idresult = iddfs(0, 0, start, goal);
+            printTaggedReverse(idresult -> route);
+            node = idresult -> node;
             release(start);
             release(goal);
-            release(iddfsResult);
+            release(idresult);
 
             break;
+        case 3:;
+            start = allocPosition(startX, startY);
+            goal = allocPosition(goalX, goalY);
+
+            Node * startNode = allocNode(copy(start), copy(start), 0, heuristic(start, goal));
+            List * open = cons(startNode, nil());
+            List * closed = nil();
+            Result * aStarResult = aStar(open, closed, start, goal);
+            printReverse(aStarResult -> route);
+            node = aStarResult -> node;
+            release(start);
+            release(goal);
+            release(open);
+            release(closed);
+            release(aStarResult);
+
     }
     return node;
 }
@@ -933,43 +1231,18 @@ theFunction (Int type, Int startX, Int startY, Int goalX, Int goalY) {
 int
 main () {
 
+    initHeap();
 
-    // printf("%d\n", theFunction(1, 0, 0, 0, 0));
-    printf("%d\n", theFunction(2, 0, 0, 6, 3));
+    printf("%d\n", theFunction(3, 0, 0, 2, 2));
+    printf("%d\n", theFunction(3, 0, 0, 0, 0));
 
-    // printf("%d\n", theFunction(2, 0, 0, 2, 2));
-    // printf("%d\n", theFunction(1, 1, 1, 3, 3));
-    // printf("%d\n", theFunction(1, 2, 2, 0, 0));
-    // printf("%d\n", theFunction(1, 2, 2, 4, 4));
-    // printf("%d\n", theFunction(1, 2, 2, 0, 4));
-    // printf("%d\n", theFunction(1, 2, 2, 4, 0));
+    printf("%d\n", theFunction(2, 0, 0, 2, 2));
+    printf("%d\n", theFunction(1, 1, 1, 3, 3));
+    printf("%d\n", theFunction(1, 2, 2, 0, 0));
+    printf("%d\n", theFunction(1, 2, 2, 4, 4));
+    printf("%d\n", theFunction(1, 2, 2, 0, 4));
+    printf("%d\n", theFunction(1, 2, 2, 4, 0));
 
-    // List * table = nil();
-    // List * routes = cons(cons(allocTaggedPosition(0, allocPosition(0, 0)), nil()), nil());
-    // Position * goal = allocPosition(1, 2);
-    // Maybe * result = dfs(table, routes, 3, goal);
-
-    // printMaybe(result, printDFSResult);
-
-
-    // release(table);
-    // release(routes);
-    // release(goal);
-    // release(result);
-
-
-
-    // Position * start = allocPosition(0, 0);
-    // Position * goal = allocPosition(1, 2);
-
-    // DFSResult * result = iddfs(0, start, goal);
-
-    // printDFSResult(result);
-
-
-    // release(start);
-    // release(goal);
-    // release(result);
 
     printf("heap size: %d\n", heapSize(HEAP));
 
